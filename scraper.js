@@ -10,8 +10,12 @@ class ThaiRealEstateScraper {
 
   async initialize() {
     this.browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      headless: 'new',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage'
+      ]
     });
   }
 
@@ -19,6 +23,62 @@ class ThaiRealEstateScraper {
     if (this.browser) {
       await this.browser.close();
     }
+  }
+
+  async withPage(task) {
+    const page = await this.browser.newPage();
+    try {
+      await page.setUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36'
+      );
+      page.setDefaultTimeout(30000);
+      page.setDefaultNavigationTimeout(30000);
+      return await task(page);
+    } finally {
+      await page.close();
+    }
+  }
+
+  delay(ms = 2000) {
+    return new Promise(res => setTimeout(res, ms));
+  }
+
+  log(source, message) {
+    console.log(`[${new Date().toISOString()}][${source}] ${message}`);
+  }
+
+  parseNumber(text = '') {
+    const n = parseInt(text.replace(/[^0-9]/g, ''), 10);
+    return Number.isNaN(n) ? null : n;
+  }
+
+  normalizeListing(listing) {
+    return {
+      ...listing,
+      priceValue: this.parseNumber(listing.price),
+      sizeSqm: this.parseNumber(listing.size),
+      bedroomsValue: this.parseNumber(listing.bedrooms),
+      bathroomsValue: this.parseNumber(listing.bathrooms),
+      images: [...new Set((listing.images || []).filter(Boolean))]
+    };
+  }
+
+  addListings(source, listings) {
+    const normalized = listings.map(l =>
+      this.normalizeListing({ ...l, source })
+    );
+    this.listings.push(...normalized);
+    this.log(source, `Added ${normalized.length} listings`);
+  }
+
+  deduplicate() {
+    const seen = new Set();
+    this.listings = this.listings.filter(l => {
+      const key = l.url || `${l.title}-${l.price}-${l.location}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   async scrapeDDProperty(searchUrl) {
