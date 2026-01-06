@@ -228,26 +228,9 @@ async function main() {
   await scraper.initialize();
 
   try {
-    // Add your target URLs here
-    // Example URLs (you'll need to adjust based on actual site structure):
-    
-    // await scraper.scrapeDDProperty('https://www.ddproperty.com/en/search');
-    // await scraper.scrapePropertyShowcase('https://www.propertyshowcase.com');
-    // await scraper.scrapThaiProperty('https://www.thaiproperty.com');
-    // await scraper.scrapeHipflat('https://hipflat.co.th');
-
-    // For now, just showing how it would work
+    // Adds target URLs
     console.log('Add your target URLs to the main() function');
     console.log('Update the selectors based on the actual website structure');
-
-    // Save results
-    // scraper.saveToJSON('listings.json');
-    // scraper.saveToCSV('listings.csv');
-
-    // Filter examples
-    // const affordable = scraper.filterByPrice(1000000, 5000000);
-    // const bangkok = scraper.filterByLocation('Bangkok');
-    // console.log(affordable, bangkok);
 
   } finally {
     await scraper.closeBrowser();
