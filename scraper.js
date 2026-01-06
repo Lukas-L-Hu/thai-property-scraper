@@ -1,6 +1,5 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
-const path = require('path');
 
 class ThaiRealEstateScraper {
   constructor() {
@@ -81,52 +80,43 @@ class ThaiRealEstateScraper {
     });
   }
 
-  async scrapeDDProperty(searchUrl) {
-    console.log('Scraping DDProperty...');
-    const page = await this.browser.newPage();
-    try {
-      await page.goto(searchUrl, { waitUntil: 'networkidle2' });
-      
-      const listings = await page.evaluate(() => {
-        const items = [];
-        document.querySelectorAll('[data-testid="property-item"]').forEach(el => {
-          items.push({
-            title: el.querySelector('[data-testid="property-title"]')?.textContent?.trim() || '',
-            price: el.querySelector('[data-testid="property-price"]')?.textContent?.trim() || '',
-            location: el.querySelector('[data-testid="property-location"]')?.textContent?.trim() || '',
-            propertyType: el.querySelector('[data-testid="property-type"]')?.textContent?.trim() || '',
-            size: el.querySelector('[data-testid="property-size"]')?.textContent?.trim() || '',
-            bedrooms: el.querySelector('[data-testid="bedrooms"]')?.textContent?.trim() || '',
-            bathrooms: el.querySelector('[data-testid="bathrooms"]')?.textContent?.trim() || '',
-            description: el.querySelector('[data-testid="property-description"]')?.textContent?.trim() || '',
-            images: Array.from(el.querySelectorAll('img')).map(img => img.src),
-            agentInfo: el.querySelector('[data-testid="agent-info"]')?.textContent?.trim() || '',
-            url: el.querySelector('a')?.href || '',
-            source: 'DDProperty'
-          });
-        });
-        return items;
-      });
+  async scrapeDDProperty(url) {
+    const listings = await this.withPage(async page => {
+      this.log('DDProperty', 'Scraping...');
+      await page.goto(url, { waitUntil: 'networkidle2' });
 
-      this.listings.push(...listings);
-      console.log(`Found ${listings.length} listings on DDProperty`);
-    } catch (error) {
-      console.error('Error scraping DDProperty:', error.message);
-    } finally {
-      await page.close();
-    }
+      return page.evaluate(() => {
+        return Array.from(
+          document.querySelectorAll('[data-testid="property-item"]')
+        ).map(el => ({
+          title: el.querySelector('[data-testid="property-title"]')?.textContent?.trim() || '',
+          price: el.querySelector('[data-testid="property-price"]')?.textContent?.trim() || '',
+          location: el.querySelector('[data-testid="property-location"]')?.textContent?.trim() || '',
+          propertyType: el.querySelector('[data-testid="property-type"]')?.textContent?.trim() || '',
+          size: el.querySelector('[data-testid="property-size"]')?.textContent?.trim() || '',
+          bedrooms: el.querySelector('[data-testid="bedrooms"]')?.textContent?.trim() || '',
+          bathrooms: el.querySelector('[data-testid="bathrooms"]')?.textContent?.trim() || '',
+          description: el.querySelector('[data-testid="property-description"]')?.textContent?.trim() || '',
+          images: Array.from(el.querySelectorAll('img')).map(img => img.src),
+          agentInfo: el.querySelector('[data-testid="agent-info"]')?.textContent?.trim() || '',
+          url: el.querySelector('a')?.href || ''
+        }));
+      });
+    });
+
+    this.addListings('DDProperty', listings);
+    await this.delay();
   }
 
-  async scrapePropertyShowcase(searchUrl) {
-    console.log('Scraping PropertyShowcase...');
-    const page = await this.browser.newPage();
-    try {
-      await page.goto(searchUrl, { waitUntil: 'networkidle2' });
-      
-      const listings = await page.evaluate(() => {
-        const items = [];
-        document.querySelectorAll('.property-card, [class*="property-item"]').forEach(el => {
-          items.push({
+  async scrapePropertyShowcase(url) {
+    const listings = await this.withPage(async page => {
+        this.log('PropertyShowcase', 'Scraping...');
+        await page.goto(url, { waitUntil: 'networkidle2' });
+
+        return page.evaluate(() => {
+        return Array.from(
+            document.querySelectorAll('.property-card, [class*="property-item"]')
+        ).map(el => ({
             title: el.querySelector('h2, h3, [class*="title"]')?.textContent?.trim() || '',
             price: el.querySelector('[class*="price"]')?.textContent?.trim() || '',
             location: el.querySelector('[class*="location"], [class*="address"]')?.textContent?.trim() || '',
@@ -135,73 +125,25 @@ class ThaiRealEstateScraper {
             bedrooms: el.querySelector('[class*="bed"]')?.textContent?.trim() || '',
             bathrooms: el.querySelector('[class*="bath"]')?.textContent?.trim() || '',
             description: el.querySelector('[class*="description"]')?.textContent?.trim() || '',
-            images: Array.from(el.querySelectorAll('img')).map(img => img.src || img.dataset.src),
+            images: Array.from(el.querySelectorAll('img')).map(img => img.src || img.dataset?.src),
             agentInfo: el.querySelector('[class*="agent"]')?.textContent?.trim() || '',
-            url: el.querySelector('a')?.href || '',
-            source: 'PropertyShowcase'
-          });
+            url: el.querySelector('a')?.href || ''
+        }));
         });
-        return items;
-      });
+    });
 
-      this.listings.push(...listings);
-      console.log(`Found ${listings.length} listings on PropertyShowcase`);
-    } catch (error) {
-      console.error('Error scraping PropertyShowcase:', error.message);
-    } finally {
-      await page.close();
-    }
+    this.addListings('PropertyShowcase', listings);
+    await this.delay();
   }
 
-  async scrapThaiProperty(searchUrl) {
-    console.log('Scraping ThaiProperty...');
-    const page = await this.browser.newPage();
-    try {
-      await page.goto(searchUrl, { waitUntil: 'networkidle2' });
-      
-      const listings = await page.evaluate(() => {
-        const items = [];
-        document.querySelectorAll('[class*="listing"], [class*="property"]').forEach(el => {
-          const priceEl = el.querySelector('[class*="price"]');
-          const price = priceEl?.textContent?.trim() || '';
-          
-          items.push({
-            title: el.querySelector('h2, h3')?.textContent?.trim() || '',
-            price: price,
-            location: el.querySelector('[class*="location"]')?.textContent?.trim() || '',
-            propertyType: el.querySelector('[class*="type"]')?.textContent?.trim() || '',
-            size: el.querySelector('[class*="area"], [class*="sqm"]')?.textContent?.trim() || '',
-            bedrooms: el.querySelector('[class*="bedroom"], [class*="bed"]')?.textContent?.trim() || '',
-            bathrooms: el.querySelector('[class*="bathroom"], [class*="bath"]')?.textContent?.trim() || '',
-            description: el.querySelector('[class*="description"]')?.textContent?.trim() || '',
-            images: Array.from(el.querySelectorAll('img')).map(img => img.src || img.dataset.src),
-            agentInfo: el.querySelector('[class*="agent"], [class*="seller"]')?.textContent?.trim() || '',
-            url: el.querySelector('a')?.href || '',
-            source: 'ThaiProperty'
-          });
-        });
-        return items;
-      });
+  async scrapeHipflat(url) {
+    const listings = await this.withPage(async page => {
+      this.log('Hipflat', 'Scraping...');
+      await page.goto(url, { waitUntil: 'networkidle2' });
 
-      this.listings.push(...listings);
-      console.log(`Found ${listings.length} listings on ThaiProperty`);
-    } catch (error) {
-      console.error('Error scraping ThaiProperty:', error.message);
-    } finally {
-      await page.close();
-    }
-  }
-
-  async scrapeHipflat(searchUrl) {
-    console.log('Scraping Hipflat...');
-    const page = await this.browser.newPage();
-    try {
-      await page.goto(searchUrl, { waitUntil: 'networkidle2' });
-      
-      const listings = await page.evaluate(() => {
-        const items = [];
-        document.querySelectorAll('article, [class*="listing"]').forEach(el => {
-          items.push({
+      return page.evaluate(() => {
+        return Array.from(document.querySelectorAll('article, [class*="listing"]'))
+          .map(el => ({
             title: el.querySelector('h2, h3, a')?.textContent?.trim() || '',
             price: el.querySelector('[class*="price"]')?.textContent?.trim() || '',
             location: el.querySelector('[class*="location"]')?.textContent?.trim() || '',
@@ -210,74 +152,50 @@ class ThaiRealEstateScraper {
             bedrooms: el.querySelector('[class*="bed"]')?.textContent?.trim() || '',
             bathrooms: el.querySelector('[class*="bath"]')?.textContent?.trim() || '',
             description: el.textContent?.substring(0, 500).trim() || '',
-            images: Array.from(el.querySelectorAll('img')).map(img => img.src || img.dataset.src),
+            images: Array.from(el.querySelectorAll('img')).map(img => img.src || img.dataset?.src),
             agentInfo: el.querySelector('[class*="agent"]')?.textContent?.trim() || '',
-            url: el.querySelector('a')?.href || '',
-            source: 'Hipflat'
-          });
-        });
-        return items;
+            url: el.querySelector('a')?.href || ''
+          }));
       });
-
-      this.listings.push(...listings);
-      console.log(`Found ${listings.length} listings on Hipflat`);
-    } catch (error) {
-      console.error('Error scraping Hipflat:', error.message);
-    } finally {
-      await page.close();
-    }
+    });
+    this.addListings('Hipflat', listings);
+    await this.delay();
   }
 
   saveToJSON(filename = 'listings.json') {
+    this.deduplicate();
     fs.writeFileSync(filename, JSON.stringify(this.listings, null, 2));
-    console.log(`Saved ${this.listings.length} listings to ${filename}`);
+    this.log('SYSTEM', `Saved ${this.listings.length} listings to ${filename}`);
   }
 
   saveToCSV(filename = 'listings.csv') {
-    if (this.listings.length === 0) {
-      console.log('No listings to save');
-      return;
-    }
+    this.deduplicate();
+    if (!this.listings.length) return;
 
-    const headers = Object.keys(this.listings[0]);
-    let csv = headers.join(',') + '\n';
+    const headers = [...new Set(this.listings.flatMap(Object.keys))];
+    const rows = this.listings.map(l =>
+      headers.map(h => `"${String(l[h] ?? '').replace(/"/g, '""')}"`).join(',')
+    );
 
-    this.listings.forEach(listing => {
-      const row = headers.map(header => {
-        let value = listing[header];
-        if (Array.isArray(value)) {
-          value = value.join(';');
-        }
-        value = String(value).replace(/"/g, '""');
-        return `"${value}"`;
-      });
-      csv += row.join(',') + '\n';
-    });
-
-    fs.writeFileSync(filename, csv);
-    console.log(`Saved ${this.listings.length} listings to ${filename}`);
+    fs.writeFileSync(filename, `${headers.join(',')}\n${rows.join('\n')}`);
+    this.log('SYSTEM', `Saved ${this.listings.length} listings to ${filename}`);
   }
 
-  getListings() {
-    return this.listings;
-  }
-
-  filterByPrice(minPrice, maxPrice) {
-    return this.listings.filter(listing => {
-      const price = parseInt(listing.price.replace(/[^0-9]/g, ''));
-      return price >= minPrice && price <= maxPrice;
-    });
+  filterByPrice(min, max) {
+    return this.listings.filter(
+      l => l.priceValue !== null && l.priceValue >= min && l.priceValue <= max
+    );
   }
 
   filterByLocation(location) {
-    return this.listings.filter(listing =>
-      listing.location.toLowerCase().includes(location.toLowerCase())
+    return this.listings.filter(l =>
+      l.location.toLowerCase().includes(location.toLowerCase())
     );
   }
 
   filterByPropertyType(type) {
-    return this.listings.filter(listing =>
-      listing.propertyType.toLowerCase().includes(type.toLowerCase())
+    return this.listings.filter(l =>
+      l.propertyType.toLowerCase().includes(type.toLowerCase())
     );
   }
 }
@@ -297,6 +215,8 @@ async function main() {
   }
 }
 
-main().catch(console.error);
+if (require.main == module) {
+    main().catch(console.error);
+}
 
 module.exports = ThaiRealEstateScraper;
